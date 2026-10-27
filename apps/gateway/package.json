@@ -1,0 +1,24 @@
+{
+  "name": "@tollgate/gateway",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "tollgate-mcp": "dist/bin/tollgate-mcp.js"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "dev": "echo '@tollgate/gateway: no dev task yet'"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.9.0",
+    "@tollgate/contracts": "workspace:*",
+    "@tollgate/db": "workspace:*",
+    "@tollgate/guard-ai": "workspace:*",
+    "@tollgate/paypal": "workspace:*",
+    "@tollgate/policy": "workspace:*",
+    "fastify": "^5.1.0",
+    "zod": "^3.23.8"
+  }
+}

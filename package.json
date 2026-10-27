@@ -1,0 +1,29 @@
+{
+  "name": "tollgate",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev": "pnpm -r --parallel run dev",
+    "build": "pnpm -r run build",
+    "lint": "eslint .",
+    "typecheck": "pnpm -r run typecheck",
+    "test": "vitest run",
+    "format": "prettier --write .",
+    "db:migrate": "pnpm --filter @tollgate/db run migrate",
+    "demo": "echo 'TODO: scripted demo — see docs/ARCHITECTURE.md'"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.15.0",
+    "@types/node": "^22.10.1",
+    "eslint": "^9.15.0",
+    "eslint-config-prettier": "^9.1.0",
+    "prettier": "^3.4.1",
+    "typescript": "^5.7.2",
+    "typescript-eslint": "^8.16.0",
+    "vitest": "^2.1.6"
+  }
+}
