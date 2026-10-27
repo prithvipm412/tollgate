@@ -4,9 +4,10 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "tsc -p tsconfig.json",
+    "build": "next build",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "dev": "echo '@tollgate/dashboard: Next.js app scaffold pending Codex C task brief'"
+    "dev": "next dev",
+    "test": "vitest run --root ../.. apps/dashboard/src"
   },
   "dependencies": {
     "@tollgate/contracts": "workspace:*",
@@ -16,6 +17,8 @@
     "react-dom": "^18.3.1"
   },
   "devDependencies": {
+    "@types/react": "^18.3.31",
+    "@types/react-dom": "^18.3.7",
     "tailwindcss": "^3.4.15"
   }
 }
