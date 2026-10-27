@@ -9,7 +9,8 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "dev": "echo '@tollgate/gateway: no dev task yet'"
+    "dev": "tsx --env-file=../../.env src/main.ts",
+    "test": "vitest run --root ../.. apps/gateway/src"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.9.0",
@@ -19,6 +20,10 @@
     "@tollgate/paypal": "workspace:*",
     "@tollgate/policy": "workspace:*",
     "fastify": "^5.1.0",
-    "zod": "^3.23.8"
+    "zod": "^3.23.8",
+    "postgres": "^3.4.5"
+  },
+  "devDependencies": {
+    "tsx": "^4.23.15"
   }
 }
