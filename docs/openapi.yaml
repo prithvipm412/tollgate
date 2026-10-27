@@ -1,0 +1,2199 @@
+openapi: 3.1.0
+info:
+  title: Tollgate API
+  version: 1.0.0
+  description: Firewall for AI agents moving money through PayPal. See
+    docs/ARCHITECTURE.md and docs/CONTRACT.md.
+servers:
+  - url: http://localhost:4000
+    description: Local gateway
+components:
+  securitySchemes:
+    agentKey:
+      type: http
+      scheme: bearer
+      description: Agent API key, e.g. 'tg_ab12...'
+    adminSession:
+      type: apiKey
+      in: cookie
+      name: tg_session
+      description: httpOnly session cookie from POST /v1/auth/login
+  schemas:
+    Money:
+      type: object
+      properties:
+        currency:
+          type: string
+          enum:
+            - USD
+        value:
+          type: string
+      required:
+        - currency
+        - value
+      example:
+        currency: USD
+        value: "12.50"
+    PaymentActionRequest:
+      type: object
+      properties:
+        action_id:
+          type: string
+          format: uuid
+        kind:
+          type: string
+          enum:
+            - payout
+            - refund
+            - invoice_send
+            - order_create
+        amount:
+          type: object
+          properties:
+            currency:
+              type: string
+              enum:
+                - USD
+            value:
+              type: string
+              pattern: ^\d+\.\d{2}$
+          required:
+            - currency
+            - value
+        counterparty:
+          type: object
+          properties:
+            type:
+              type: string
+              enum:
+                - email
+                - paypal_payer_id
+                - capture_id
+            value:
+              type: string
+              minLength: 1
+            display_name:
+              type: string
+              minLength: 1
+          required:
+            - type
+            - value
+        category:
+          type: string
+          maxLength: 100
+        memo:
+          type: string
+          maxLength: 500
+        reason:
+          type: string
+          minLength: 1
+          maxLength: 2000
+        source_context:
+          type: array
+          items:
+            type: string
+            maxLength: 4000
+          maxItems: 5
+        metadata:
+          type: object
+          additionalProperties:
+            type: string
+      required:
+        - action_id
+        - kind
+        - amount
+        - counterparty
+        - reason
+    ActionRecord:
+      type: object
+      properties:
+        request:
+          type: object
+          properties:
+            action_id:
+              type: string
+              format: uuid
+            kind:
+              type: string
+              enum:
+                - payout
+                - refund
+                - invoice_send
+                - order_create
+            amount:
+              type: object
+              properties:
+                currency:
+                  type: string
+                  enum:
+                    - USD
+                value:
+                  type: string
+                  pattern: ^\d+\.\d{2}$
+              required:
+                - currency
+                - value
+            counterparty:
+              type: object
+              properties:
+                type:
+                  type: string
+                  enum:
+                    - email
+                    - paypal_payer_id
+                    - capture_id
+                value:
+                  type: string
+                  minLength: 1
+                display_name:
+                  type: string
+                  minLength: 1
+              required:
+                - type
+                - value
+            category:
+              type: string
+              maxLength: 100
+            memo:
+              type: string
+              maxLength: 500
+            reason:
+              type: string
+              minLength: 1
+              maxLength: 2000
+            source_context:
+              type: array
+              items:
+                type: string
+                maxLength: 4000
+              maxItems: 5
+            metadata:
+              type: object
+              additionalProperties:
+                type: string
+          required:
+            - action_id
+            - kind
+            - amount
+            - counterparty
+            - reason
+        agent_id:
+          type: string
+          format: uuid
+        decision:
+          type: object
+          properties:
+            verdict:
+              type: string
+              enum:
+                - allow
+                - hold
+                - block
+            risk_score:
+              type: integer
+              minimum: 0
+              maximum: 100
+            findings:
+              type: array
+              items:
+                type: object
+                properties:
+                  source:
+                    type: string
+                    enum:
+                      - policy
+                      - anomaly
+                      - injection
+                      - intent
+                      - system
+                  code:
+                    type: string
+                    pattern: ^[A-Z][A-Z0-9_]*$
+                  severity:
+                    type: string
+                    enum:
+                      - info
+                      - warn
+                      - hold
+                      - block
+                  message:
+                    type: string
+                    minLength: 1
+                  evidence:
+                    type: string
+                required:
+                  - source
+                  - code
+                  - severity
+                  - message
+            policy_version:
+              type: integer
+              exclusiveMinimum: 0
+            decided_at:
+              type: string
+              format: date-time
+          required:
+            - verdict
+            - risk_score
+            - findings
+            - policy_version
+            - decided_at
+        status:
+          type: string
+          enum:
+            - received
+            - blocked
+            - pending_approval
+            - approved
+            - denied
+            - expired
+            - executing
+            - executed
+            - failed
+        paypal_resource_id:
+          type: string
+        error:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+      required:
+        - request
+        - agent_id
+        - status
+        - created_at
+        - updated_at
+    Agent:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+          minLength: 1
+        status:
+          type: string
+          enum:
+            - active
+            - frozen
+        key_prefix:
+          type: string
+          pattern: ^tg_[A-Za-z0-9]{4,}$
+        created_at:
+          type: string
+          format: date-time
+        last_seen_at:
+          type:
+            - string
+            - "null"
+          format: date-time
+      required:
+        - id
+        - name
+        - status
+        - key_prefix
+        - created_at
+        - last_seen_at
+    AgentCreateResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+          minLength: 1
+        status:
+          type: string
+          enum:
+            - active
+            - frozen
+        key_prefix:
+          type: string
+          pattern: ^tg_[A-Za-z0-9]{4,}$
+        created_at:
+          type: string
+          format: date-time
+        last_seen_at:
+          type:
+            - string
+            - "null"
+          format: date-time
+        api_key:
+          type: string
+          minLength: 1
+      required:
+        - id
+        - name
+        - status
+        - key_prefix
+        - created_at
+        - last_seen_at
+        - api_key
+    Mandate:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        agent_id:
+          type: string
+          format: uuid
+        instruction:
+          type: string
+          minLength: 1
+          maxLength: 4000
+        policy:
+          type: object
+          properties:
+            version:
+              type: number
+              enum:
+                - 1
+            kinds_allowed:
+              type: array
+              items:
+                type: string
+                enum:
+                  - payout
+                  - refund
+                  - invoice_send
+                  - order_create
+              minItems: 1
+            limits:
+              type: object
+              properties:
+                per_action_max:
+                  type: object
+                  properties:
+                    currency:
+                      type: string
+                      enum:
+                        - USD
+                    value:
+                      type: string
+                      pattern: ^\d+\.\d{2}$
+                  required:
+                    - currency
+                    - value
+                daily_max:
+                  type: object
+                  properties:
+                    currency:
+                      type: string
+                      enum:
+                        - USD
+                    value:
+                      type: string
+                      pattern: ^\d+\.\d{2}$
+                  required:
+                    - currency
+                    - value
+                weekly_max:
+                  type: object
+                  properties:
+                    currency:
+                      type: string
+                      enum:
+                        - USD
+                    value:
+                      type: string
+                      pattern: ^\d+\.\d{2}$
+                  required:
+                    - currency
+                    - value
+                monthly_max:
+                  type: object
+                  properties:
+                    currency:
+                      type: string
+                      enum:
+                        - USD
+                    value:
+                      type: string
+                      pattern: ^\d+\.\d{2}$
+                  required:
+                    - currency
+                    - value
+            approval:
+              type: object
+              properties:
+                require_above:
+                  type: object
+                  properties:
+                    currency:
+                      type: string
+                      enum:
+                        - USD
+                    value:
+                      type: string
+                      pattern: ^\d+\.\d{2}$
+                  required:
+                    - currency
+                    - value
+                always_for_kinds:
+                  type: array
+                  items:
+                    type: string
+                    enum:
+                      - payout
+                      - refund
+                      - invoice_send
+                      - order_create
+                new_counterparty:
+                  type: boolean
+              required:
+                - new_counterparty
+            counterparties:
+              type: object
+              properties:
+                allow:
+                  type: array
+                  items:
+                    type: string
+                    minLength: 1
+                deny:
+                  type: array
+                  items:
+                    type: string
+                    minLength: 1
+            categories:
+              type: object
+              properties:
+                allow:
+                  type: array
+                  items:
+                    type: string
+                    minLength: 1
+                deny:
+                  type: array
+                  items:
+                    type: string
+                    minLength: 1
+            velocity:
+              type: object
+              properties:
+                max_actions_per_hour:
+                  type: integer
+                  exclusiveMinimum: 0
+            schedule:
+              type: object
+              properties:
+                days:
+                  type: array
+                  items:
+                    type: string
+                    enum:
+                      - mon
+                      - tue
+                      - wed
+                      - thu
+                      - fri
+                      - sat
+                      - sun
+                  minItems: 1
+                start_hour:
+                  type: integer
+                  minimum: 0
+                  maximum: 23
+                end_hour:
+                  type: integer
+                  minimum: 0
+                  maximum: 23
+                tz:
+                  type: string
+                  minLength: 1
+              required:
+                - days
+                - start_hour
+                - end_hour
+                - tz
+          required:
+            - version
+            - kinds_allowed
+            - limits
+            - approval
+            - counterparties
+            - categories
+            - velocity
+        version:
+          type: integer
+          exclusiveMinimum: 0
+        confirmed_at:
+          type: string
+          format: date-time
+        created_at:
+          type: string
+          format: date-time
+      required:
+        - id
+        - agent_id
+        - instruction
+        - policy
+        - version
+        - confirmed_at
+        - created_at
+    PolicyDocument:
+      type: object
+      properties:
+        version:
+          type: number
+          enum:
+            - 1
+        kinds_allowed:
+          type: array
+          items:
+            type: string
+            enum:
+              - payout
+              - refund
+              - invoice_send
+              - order_create
+          minItems: 1
+        limits:
+          type: object
+          properties:
+            per_action_max:
+              type: object
+              properties:
+                currency:
+                  type: string
+                  enum:
+                    - USD
+                value:
+                  type: string
+                  pattern: ^\d+\.\d{2}$
+              required:
+                - currency
+                - value
+            daily_max:
+              type: object
+              properties:
+                currency:
+                  type: string
+                  enum:
+                    - USD
+                value:
+                  type: string
+                  pattern: ^\d+\.\d{2}$
+              required:
+                - currency
+                - value
+            weekly_max:
+              type: object
+              properties:
+                currency:
+                  type: string
+                  enum:
+                    - USD
+                value:
+                  type: string
+                  pattern: ^\d+\.\d{2}$
+              required:
+                - currency
+                - value
+            monthly_max:
+              type: object
+              properties:
+                currency:
+                  type: string
+                  enum:
+                    - USD
+                value:
+                  type: string
+                  pattern: ^\d+\.\d{2}$
+              required:
+                - currency
+                - value
+        approval:
+          type: object
+          properties:
+            require_above:
+              type: object
+              properties:
+                currency:
+                  type: string
+                  enum:
+                    - USD
+                value:
+                  type: string
+                  pattern: ^\d+\.\d{2}$
+              required:
+                - currency
+                - value
+            always_for_kinds:
+              type: array
+              items:
+                type: string
+                enum:
+                  - payout
+                  - refund
+                  - invoice_send
+                  - order_create
+            new_counterparty:
+              type: boolean
+          required:
+            - new_counterparty
+        counterparties:
+          type: object
+          properties:
+            allow:
+              type: array
+              items:
+                type: string
+                minLength: 1
+            deny:
+              type: array
+              items:
+                type: string
+                minLength: 1
+        categories:
+          type: object
+          properties:
+            allow:
+              type: array
+              items:
+                type: string
+                minLength: 1
+            deny:
+              type: array
+              items:
+                type: string
+                minLength: 1
+        velocity:
+          type: object
+          properties:
+            max_actions_per_hour:
+              type: integer
+              exclusiveMinimum: 0
+        schedule:
+          type: object
+          properties:
+            days:
+              type: array
+              items:
+                type: string
+                enum:
+                  - mon
+                  - tue
+                  - wed
+                  - thu
+                  - fri
+                  - sat
+                  - sun
+              minItems: 1
+            start_hour:
+              type: integer
+              minimum: 0
+              maximum: 23
+            end_hour:
+              type: integer
+              minimum: 0
+              maximum: 23
+            tz:
+              type: string
+              minLength: 1
+          required:
+            - days
+            - start_hour
+            - end_hour
+            - tz
+      required:
+        - version
+        - kinds_allowed
+        - limits
+        - approval
+        - counterparties
+        - categories
+        - velocity
+    PolicyCompileRequest:
+      type: object
+      properties:
+        instruction:
+          type: string
+          minLength: 1
+          maxLength: 4000
+      required:
+        - instruction
+    PolicyCompileResponse:
+      type: object
+      properties:
+        policy:
+          type: object
+          properties:
+            version:
+              type: number
+              enum:
+                - 1
+            kinds_allowed:
+              type: array
+              items:
+                type: string
+                enum:
+                  - payout
+                  - refund
+                  - invoice_send
+                  - order_create
+              minItems: 1
+            limits:
+              type: object
+              properties:
+                per_action_max:
+                  type: object
+                  properties:
+                    currency:
+                      type: string
+                      enum:
+                        - USD
+                    value:
+                      type: string
+                      pattern: ^\d+\.\d{2}$
+                  required:
+                    - currency
+                    - value
+                daily_max:
+                  type: object
+                  properties:
+                    currency:
+                      type: string
+                      enum:
+                        - USD
+                    value:
+                      type: string
+                      pattern: ^\d+\.\d{2}$
+                  required:
+                    - currency
+                    - value
+                weekly_max:
+                  type: object
+                  properties:
+                    currency:
+                      type: string
+                      enum:
+                        - USD
+                    value:
+                      type: string
+                      pattern: ^\d+\.\d{2}$
+                  required:
+                    - currency
+                    - value
+                monthly_max:
+                  type: object
+                  properties:
+                    currency:
+                      type: string
+                      enum:
+                        - USD
+                    value:
+                      type: string
+                      pattern: ^\d+\.\d{2}$
+                  required:
+                    - currency
+                    - value
+            approval:
+              type: object
+              properties:
+                require_above:
+                  type: object
+                  properties:
+                    currency:
+                      type: string
+                      enum:
+                        - USD
+                    value:
+                      type: string
+                      pattern: ^\d+\.\d{2}$
+                  required:
+                    - currency
+                    - value
+                always_for_kinds:
+                  type: array
+                  items:
+                    type: string
+                    enum:
+                      - payout
+                      - refund
+                      - invoice_send
+                      - order_create
+                new_counterparty:
+                  type: boolean
+              required:
+                - new_counterparty
+            counterparties:
+              type: object
+              properties:
+                allow:
+                  type: array
+                  items:
+                    type: string
+                    minLength: 1
+                deny:
+                  type: array
+                  items:
+                    type: string
+                    minLength: 1
+            categories:
+              type: object
+              properties:
+                allow:
+                  type: array
+                  items:
+                    type: string
+                    minLength: 1
+                deny:
+                  type: array
+                  items:
+                    type: string
+                    minLength: 1
+            velocity:
+              type: object
+              properties:
+                max_actions_per_hour:
+                  type: integer
+                  exclusiveMinimum: 0
+            schedule:
+              type: object
+              properties:
+                days:
+                  type: array
+                  items:
+                    type: string
+                    enum:
+                      - mon
+                      - tue
+                      - wed
+                      - thu
+                      - fri
+                      - sat
+                      - sun
+                  minItems: 1
+                start_hour:
+                  type: integer
+                  minimum: 0
+                  maximum: 23
+                end_hour:
+                  type: integer
+                  minimum: 0
+                  maximum: 23
+                tz:
+                  type: string
+                  minLength: 1
+              required:
+                - days
+                - start_hour
+                - end_hour
+                - tz
+          required:
+            - version
+            - kinds_allowed
+            - limits
+            - approval
+            - counterparties
+            - categories
+            - velocity
+        explanation:
+          type: array
+          items:
+            type: string
+            minLength: 1
+          minItems: 1
+        warnings:
+          type: array
+          items:
+            type: string
+            minLength: 1
+      required:
+        - policy
+        - explanation
+        - warnings
+    ApprovalRequest:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        action_id:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum:
+            - pending
+            - approved
+            - denied
+            - expired
+        expires_at:
+          type: string
+          format: date-time
+        decided_at:
+          type: string
+          format: date-time
+        decided_via:
+          type: string
+          enum:
+            - dashboard
+            - link
+      required:
+        - id
+        - action_id
+        - status
+        - expires_at
+    ApprovalLinkView:
+      type: object
+      properties:
+        approval_id:
+          type: string
+          format: uuid
+        action_id:
+          type: string
+          format: uuid
+        amount:
+          type: object
+          properties:
+            currency:
+              type: string
+              enum:
+                - USD
+            value:
+              type: string
+              pattern: ^\d+\.\d{2}$
+          required:
+            - currency
+            - value
+        payee:
+          type: object
+          properties:
+            type:
+              type: string
+              enum:
+                - email
+                - paypal_payer_id
+                - capture_id
+            value:
+              type: string
+              minLength: 1
+            display_name:
+              type: string
+              minLength: 1
+          required:
+            - type
+            - value
+        agent_name:
+          type: string
+          minLength: 1
+        kind:
+          type: string
+          enum:
+            - payout
+            - refund
+            - invoice_send
+            - order_create
+        reason:
+          type: string
+          minLength: 1
+        findings:
+          type: array
+          items:
+            type: object
+            properties:
+              source:
+                type: string
+                enum:
+                  - policy
+                  - anomaly
+                  - injection
+                  - intent
+                  - system
+              code:
+                type: string
+                pattern: ^[A-Z][A-Z0-9_]*$
+              severity:
+                type: string
+                enum:
+                  - info
+                  - warn
+                  - hold
+                  - block
+              message:
+                type: string
+                minLength: 1
+              evidence:
+                type: string
+            required:
+              - source
+              - code
+              - severity
+              - message
+        status:
+          type: string
+          enum:
+            - pending
+            - approved
+            - denied
+            - expired
+        expires_at:
+          type: string
+          format: date-time
+      required:
+        - approval_id
+        - action_id
+        - amount
+        - payee
+        - agent_name
+        - kind
+        - reason
+        - findings
+        - status
+        - expires_at
+    AuditEvent:
+      type: object
+      properties:
+        seq:
+          type: integer
+          minimum: 0
+        ts:
+          type: string
+          format: date-time
+        type:
+          type: string
+          minLength: 1
+        action_id:
+          type: string
+          format: uuid
+        agent_id:
+          type: string
+          format: uuid
+        payload:
+          type: object
+          additionalProperties: {}
+        prev_hash:
+          type: string
+          pattern: ^[a-f0-9]{64}$
+        hash:
+          type: string
+          pattern: ^[a-f0-9]{64}$
+      required:
+        - seq
+        - ts
+        - type
+        - payload
+        - prev_hash
+        - hash
+    AuditVerifyResult:
+      type: object
+      properties:
+        ok:
+          type: boolean
+        checked:
+          type: integer
+          minimum: 0
+        first_bad_seq:
+          type: integer
+          minimum: 0
+      required:
+        - ok
+        - checked
+    KillSwitchState:
+      type: object
+      properties:
+        engaged:
+          type: boolean
+        engaged_at:
+          type: string
+          format: date-time
+        reason:
+          type: string
+      required:
+        - engaged
+    StatsOverview:
+      type: object
+      properties:
+        date:
+          type: string
+          format: date
+        counts_by_verdict:
+          type: object
+          properties:
+            allow:
+              type: integer
+              minimum: 0
+            hold:
+              type: integer
+              minimum: 0
+            block:
+              type: integer
+              minimum: 0
+          required:
+            - allow
+            - hold
+            - block
+        money_protected_cents:
+          type: integer
+          minimum: 0
+        pending_approvals_count:
+          type: integer
+          minimum: 0
+        hourly_series:
+          type: array
+          items:
+            type: object
+            properties:
+              hour:
+                type: string
+                format: date-time
+              counts:
+                type: object
+                properties:
+                  allow:
+                    type: integer
+                    minimum: 0
+                  hold:
+                    type: integer
+                    minimum: 0
+                  block:
+                    type: integer
+                    minimum: 0
+                required:
+                  - allow
+                  - hold
+                  - block
+            required:
+              - hour
+              - counts
+      required:
+        - date
+        - counts_by_verdict
+        - money_protected_cents
+        - pending_approvals_count
+        - hourly_series
+    LimitsResponse:
+      type: object
+      properties:
+        per_action:
+          type: object
+          properties:
+            limit_cents:
+              type:
+                - integer
+                - "null"
+              exclusiveMinimum: 0
+            used_cents:
+              type: integer
+              minimum: 0
+            remaining_cents:
+              type:
+                - integer
+                - "null"
+          required:
+            - limit_cents
+            - used_cents
+            - remaining_cents
+        daily:
+          type: object
+          properties:
+            limit_cents:
+              type:
+                - integer
+                - "null"
+              exclusiveMinimum: 0
+            used_cents:
+              type: integer
+              minimum: 0
+            remaining_cents:
+              type:
+                - integer
+                - "null"
+          required:
+            - limit_cents
+            - used_cents
+            - remaining_cents
+        weekly:
+          type: object
+          properties:
+            limit_cents:
+              type:
+                - integer
+                - "null"
+              exclusiveMinimum: 0
+            used_cents:
+              type: integer
+              minimum: 0
+            remaining_cents:
+              type:
+                - integer
+                - "null"
+          required:
+            - limit_cents
+            - used_cents
+            - remaining_cents
+        monthly:
+          type: object
+          properties:
+            limit_cents:
+              type:
+                - integer
+                - "null"
+              exclusiveMinimum: 0
+            used_cents:
+              type: integer
+              minimum: 0
+            remaining_cents:
+              type:
+                - integer
+                - "null"
+          required:
+            - limit_cents
+            - used_cents
+            - remaining_cents
+        velocity:
+          type: object
+          properties:
+            max_actions_per_hour:
+              type:
+                - integer
+                - "null"
+              exclusiveMinimum: 0
+            actions_last_hour:
+              type: integer
+              minimum: 0
+          required:
+            - max_actions_per_hour
+            - actions_last_hour
+      required:
+        - per_action
+        - daily
+        - weekly
+        - monthly
+        - velocity
+    ApiError:
+      type: object
+      properties:
+        code:
+          type: string
+          enum:
+            - UNAUTHORIZED
+            - FORBIDDEN
+            - AGENT_FROZEN
+            - KILL_SWITCH_ENGAGED
+            - VALIDATION_ERROR
+            - NOT_FOUND
+            - IDEMPOTENCY_CONFLICT
+            - RATE_LIMITED
+            - APPROVAL_EXPIRED
+            - APPROVAL_ALREADY_RESOLVED
+            - INVALID_TOKEN
+            - PAYPAL_ERROR
+            - INTERNAL_ERROR
+        message:
+          type: string
+          minLength: 1
+        details: {}
+      required:
+        - code
+        - message
+    PageOfActionRecord:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            type: object
+            properties:
+              request:
+                type: object
+                properties:
+                  action_id:
+                    type: string
+                    format: uuid
+                  kind:
+                    type: string
+                    enum:
+                      - payout
+                      - refund
+                      - invoice_send
+                      - order_create
+                  amount:
+                    type: object
+                    properties:
+                      currency:
+                        type: string
+                        enum:
+                          - USD
+                      value:
+                        type: string
+                        pattern: ^\d+\.\d{2}$
+                    required:
+                      - currency
+                      - value
+                  counterparty:
+                    type: object
+                    properties:
+                      type:
+                        type: string
+                        enum:
+                          - email
+                          - paypal_payer_id
+                          - capture_id
+                      value:
+                        type: string
+                        minLength: 1
+                      display_name:
+                        type: string
+                        minLength: 1
+                    required:
+                      - type
+                      - value
+                  category:
+                    type: string
+                    maxLength: 100
+                  memo:
+                    type: string
+                    maxLength: 500
+                  reason:
+                    type: string
+                    minLength: 1
+                    maxLength: 2000
+                  source_context:
+                    type: array
+                    items:
+                      type: string
+                      maxLength: 4000
+                    maxItems: 5
+                  metadata:
+                    type: object
+                    additionalProperties:
+                      type: string
+                required:
+                  - action_id
+                  - kind
+                  - amount
+                  - counterparty
+                  - reason
+              agent_id:
+                type: string
+                format: uuid
+              decision:
+                type: object
+                properties:
+                  verdict:
+                    type: string
+                    enum:
+                      - allow
+                      - hold
+                      - block
+                  risk_score:
+                    type: integer
+                    minimum: 0
+                    maximum: 100
+                  findings:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        source:
+                          type: string
+                          enum:
+                            - policy
+                            - anomaly
+                            - injection
+                            - intent
+                            - system
+                        code:
+                          type: string
+                          pattern: ^[A-Z][A-Z0-9_]*$
+                        severity:
+                          type: string
+                          enum:
+                            - info
+                            - warn
+                            - hold
+                            - block
+                        message:
+                          type: string
+                          minLength: 1
+                        evidence:
+                          type: string
+                      required:
+                        - source
+                        - code
+                        - severity
+                        - message
+                  policy_version:
+                    type: integer
+                    exclusiveMinimum: 0
+                  decided_at:
+                    type: string
+                    format: date-time
+                required:
+                  - verdict
+                  - risk_score
+                  - findings
+                  - policy_version
+                  - decided_at
+              status:
+                type: string
+                enum:
+                  - received
+                  - blocked
+                  - pending_approval
+                  - approved
+                  - denied
+                  - expired
+                  - executing
+                  - executed
+                  - failed
+              paypal_resource_id:
+                type: string
+              error:
+                type: string
+              created_at:
+                type: string
+                format: date-time
+              updated_at:
+                type: string
+                format: date-time
+            required:
+              - request
+              - agent_id
+              - status
+              - created_at
+              - updated_at
+        next_cursor:
+          type:
+            - string
+            - "null"
+      required:
+        - items
+        - next_cursor
+    PageOfApprovalRequest:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: string
+                format: uuid
+              action_id:
+                type: string
+                format: uuid
+              status:
+                type: string
+                enum:
+                  - pending
+                  - approved
+                  - denied
+                  - expired
+              expires_at:
+                type: string
+                format: date-time
+              decided_at:
+                type: string
+                format: date-time
+              decided_via:
+                type: string
+                enum:
+                  - dashboard
+                  - link
+            required:
+              - id
+              - action_id
+              - status
+              - expires_at
+        next_cursor:
+          type:
+            - string
+            - "null"
+      required:
+        - items
+        - next_cursor
+    PageOfAgent:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: string
+                format: uuid
+              name:
+                type: string
+                minLength: 1
+              status:
+                type: string
+                enum:
+                  - active
+                  - frozen
+              key_prefix:
+                type: string
+                pattern: ^tg_[A-Za-z0-9]{4,}$
+              created_at:
+                type: string
+                format: date-time
+              last_seen_at:
+                type:
+                  - string
+                  - "null"
+                format: date-time
+            required:
+              - id
+              - name
+              - status
+              - key_prefix
+              - created_at
+              - last_seen_at
+        next_cursor:
+          type:
+            - string
+            - "null"
+      required:
+        - items
+        - next_cursor
+    PageOfAuditEvent:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            type: object
+            properties:
+              seq:
+                type: integer
+                minimum: 0
+              ts:
+                type: string
+                format: date-time
+              type:
+                type: string
+                minLength: 1
+              action_id:
+                type: string
+                format: uuid
+              agent_id:
+                type: string
+                format: uuid
+              payload:
+                type: object
+                additionalProperties: {}
+              prev_hash:
+                type: string
+                pattern: ^[a-f0-9]{64}$
+              hash:
+                type: string
+                pattern: ^[a-f0-9]{64}$
+            required:
+              - seq
+              - ts
+              - type
+              - payload
+              - prev_hash
+              - hash
+        next_cursor:
+          type:
+            - string
+            - "null"
+      required:
+        - items
+        - next_cursor
+  parameters: {}
+paths:
+  /v1/actions:
+    post:
+      tags:
+        - actions
+      summary: Submit a payment action for Tollgate to evaluate and (if allowed)
+        execute.
+      security:
+        - agentKey: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PaymentActionRequest"
+      responses:
+        "200":
+          description: The resulting action record (may be allow/hold/block).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ActionRecord"
+        "401":
+          description: Missing/invalid agent key, frozen agent, or kill switch engaged.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "422":
+          description: Request failed schema validation.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+    get:
+      tags:
+        - admin
+      summary: List actions, optionally filtered by status/agent_id, cursor-paginated.
+      security:
+        - adminSession: []
+      parameters:
+        - schema:
+            type: string
+          required: false
+          name: status
+          in: query
+        - schema:
+            type: string
+            format: uuid
+          required: false
+          name: agent_id
+          in: query
+        - schema:
+            type: string
+          required: false
+          name: cursor
+          in: query
+      responses:
+        "200":
+          description: A page of actions.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PageOfActionRecord"
+  /v1/actions/{id}:
+    get:
+      tags:
+        - actions
+      summary: Get one action by id. Accepts either the agent's own key or an admin
+        session.
+      security:
+        - agentKey: []
+        - adminSession: []
+      parameters:
+        - schema:
+            type: string
+            format: uuid
+          required: true
+          name: id
+          in: path
+      responses:
+        "200":
+          description: The action record.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ActionRecord"
+        "404":
+          description: No action with that id.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /v1/me/limits:
+    get:
+      tags:
+        - actions
+      summary: The calling agent's policy limits and current usage.
+      security:
+        - agentKey: []
+      responses:
+        "200":
+          description: Limits and usage.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LimitsResponse"
+  /v1/auth/login:
+    post:
+      tags:
+        - admin
+      summary: Log in as the operator with ADMIN_PASSWORD; sets an httpOnly session
+        cookie.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                password:
+                  type: string
+              required:
+                - password
+      responses:
+        "200":
+          description: Logged in.
+        "401":
+          description: Wrong password.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /v1/approvals:
+    get:
+      tags:
+        - admin
+      summary: List approval requests, optionally filtered by status.
+      security:
+        - adminSession: []
+      parameters:
+        - schema:
+            type: string
+          required: false
+          name: status
+          in: query
+      responses:
+        "200":
+          description: A page of approval requests.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PageOfApprovalRequest"
+  /v1/approvals/{id}/approve:
+    post:
+      tags:
+        - admin
+      summary: Approve a pending approval from the dashboard.
+      security:
+        - adminSession: []
+      parameters:
+        - schema:
+            type: string
+            format: uuid
+          required: true
+          name: id
+          in: path
+      responses:
+        "200":
+          description: The updated approval request.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApprovalRequest"
+        "409":
+          description: Already resolved or expired.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /v1/approvals/{id}/deny:
+    post:
+      tags:
+        - admin
+      summary: Deny a pending approval from the dashboard.
+      security:
+        - adminSession: []
+      parameters:
+        - schema:
+            type: string
+            format: uuid
+          required: true
+          name: id
+          in: path
+      responses:
+        "200":
+          description: The updated approval request.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApprovalRequest"
+        "409":
+          description: Already resolved or expired.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /v1/agents:
+    get:
+      tags:
+        - admin
+      summary: List agents.
+      security:
+        - adminSession: []
+      responses:
+        "200":
+          description: A page of agents.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PageOfAgent"
+    post:
+      tags:
+        - admin
+      summary: Create a new agent. The response includes the raw API key once.
+      security:
+        - adminSession: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  minLength: 1
+              required:
+                - name
+      responses:
+        "200":
+          description: The new agent, with its raw key.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AgentCreateResponse"
+  /v1/agents/{id}/freeze:
+    post:
+      tags:
+        - admin
+      summary: Set an agent's status to frozen.
+      security:
+        - adminSession: []
+      parameters:
+        - schema:
+            type: string
+            format: uuid
+          required: true
+          name: id
+          in: path
+      responses:
+        "200":
+          description: The updated agent (rotate-key also returns the new raw key).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Agent"
+  /v1/agents/{id}/unfreeze:
+    post:
+      tags:
+        - admin
+      summary: Set an agent's status to active.
+      security:
+        - adminSession: []
+      parameters:
+        - schema:
+            type: string
+            format: uuid
+          required: true
+          name: id
+          in: path
+      responses:
+        "200":
+          description: The updated agent (rotate-key also returns the new raw key).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Agent"
+  /v1/agents/{id}/rotate-key:
+    post:
+      tags:
+        - admin
+      summary: Rotate an agent's API key (old key stops working immediately).
+      security:
+        - adminSession: []
+      parameters:
+        - schema:
+            type: string
+            format: uuid
+          required: true
+          name: id
+          in: path
+      responses:
+        "200":
+          description: The updated agent (rotate-key also returns the new raw key).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AgentCreateResponse"
+  /v1/mandates/compile:
+    post:
+      tags:
+        - admin
+      summary: Compile a plain-English instruction into a draft PolicyDocument for the
+        human to review.
+      security:
+        - adminSession: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PolicyCompileRequest"
+      responses:
+        "200":
+          description: Draft policy, explanation, and warnings.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PolicyCompileResponse"
+  /v1/mandates:
+    post:
+      tags:
+        - admin
+      summary: Confirm a compiled policy, creating the enforced Mandate for an agent.
+      security:
+        - adminSession: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                agent_id:
+                  type: string
+                  format: uuid
+                instruction:
+                  type: string
+                policy:
+                  $ref: "#/components/schemas/PolicyDocument"
+              required:
+                - agent_id
+                - instruction
+                - policy
+      responses:
+        "200":
+          description: The confirmed mandate.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Mandate"
+  /v1/agents/{id}/mandate:
+    get:
+      tags:
+        - admin
+      summary: Get an agent's current confirmed mandate.
+      security:
+        - adminSession: []
+      parameters:
+        - schema:
+            type: string
+            format: uuid
+          required: true
+          name: id
+          in: path
+      responses:
+        "200":
+          description: The mandate.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Mandate"
+        "404":
+          description: Agent has no confirmed mandate yet.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /v1/killswitch:
+    get:
+      tags:
+        - admin
+      summary: Get the global kill switch state.
+      security:
+        - adminSession: []
+      responses:
+        "200":
+          description: Kill switch state.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/KillSwitchState"
+    post:
+      tags:
+        - admin
+      summary: Engage or disengage the global kill switch. While engaged, every action
+        is rejected before policy evaluation.
+      security:
+        - adminSession: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                engaged:
+                  type: boolean
+                reason:
+                  type: string
+              required:
+                - engaged
+      responses:
+        "200":
+          description: The updated kill switch state.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/KillSwitchState"
+  /v1/audit:
+    get:
+      tags:
+        - admin
+      summary: List the hash-chained audit log, cursor-paginated by seq.
+      security:
+        - adminSession: []
+      parameters:
+        - schema:
+            type: string
+          required: false
+          name: cursor
+          in: query
+      responses:
+        "200":
+          description: A page of audit events.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PageOfAuditEvent"
+  /v1/audit/verify:
+    get:
+      tags:
+        - admin
+      summary: Walk the entire audit log and confirm no row was altered or removed.
+      security:
+        - adminSession: []
+      responses:
+        "200":
+          description: Verification result.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuditVerifyResult"
+  /v1/events:
+    get:
+      tags:
+        - admin
+      summary: "Server-Sent Events stream of live pipeline events. Supports
+        Last-Event-ID for reconnect; sends a `: heartbeat` comment every 15s."
+      security:
+        - adminSession: []
+      parameters:
+        - schema:
+            type: string
+          required: false
+          name: Last-Event-ID
+          in: header
+      responses:
+        "200":
+          description: text/event-stream of TollgateEvent.
+          content:
+            text/event-stream:
+              schema:
+                type: string
+  /v1/stats/overview:
+    get:
+      tags:
+        - admin
+      summary: "Dashboard summary tiles: today's verdict counts, money protected,
+        pending approvals, 24h hourly series."
+      security:
+        - adminSession: []
+      responses:
+        "200":
+          description: Stats overview.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StatsOverview"
+  /v1/approval-links/{token}:
+    get:
+      tags:
+        - approval-links
+      summary: View a pending approval via its one-time, HMAC-signed, 15-minute-expiry
+        link.
+      parameters:
+        - schema:
+            type: string
+          required: true
+          name: token
+          in: path
+      responses:
+        "200":
+          description: What the mobile approval page shows.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApprovalLinkView"
+        "410":
+          description: Token expired or already used.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+    post:
+      tags:
+        - approval-links
+      summary: Approve or deny via the one-time link. The token is consumed on first
+        use either way.
+      parameters:
+        - schema:
+            type: string
+          required: true
+          name: token
+          in: path
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                decision:
+                  type: string
+                  enum:
+                    - approve
+                    - deny
+              required:
+                - decision
+      responses:
+        "200":
+          description: The resolved approval.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApprovalRequest"
+        "410":
+          description: Token expired or already used.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /webhooks/paypal:
+    post:
+      tags:
+        - public
+      summary: PayPal webhook receiver. Verifies signature, dedupes by PayPal event id.
+      responses:
+        "200":
+          description: Acknowledged.
+        "400":
+          description: Invalid signature.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /healthz:
+    get:
+      tags:
+        - public
+      summary: Liveness probe.
+      responses:
+        "200":
+          description: OK.
+  /readyz:
+    get:
+      tags:
+        - public
+      summary: Readiness probe (DB + LLM reachability).
+      responses:
+        "200":
+          description: Ready.
+        "503":
+          description: Not ready.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+webhooks: {}
