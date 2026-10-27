@@ -9,7 +9,7 @@ One page. Builders read this instead of the source. Full shapes: `packages/contr
 | `Money` | `{ currency, value }` — decimal string, 2dp; use `moneyToCents`/`centsToMoney`, never float math. |
 | `ActionKind` | `"payout" \| "refund" \| "invoice_send" \| "order_create"`. |
 | `Counterparty` | Who money moves to/from: `{ type: email\|paypal_payer_id\|capture_id, value, display_name? }`. |
-| `PaymentActionRequest` | What an agent submits: action_id (uuid, idempotency key), kind, amount, counterparty, category?, memo?, reason, source_context?, metadata?. |
+| `PaymentActionRequest` | What an agent submits: action_id (uuid, idempotency key), kind, amount, counterparty, category?, memo?, reason, source_context?, metadata?. Discriminated union on `kind` — `counterparty` is required for payout/refund/invoice_send and **optional** for order_create (no payer exists until checkout completes; counterparty/new-counterparty policy rules are skipped for it). |
 | `Finding` | One signal from policy/AI guard: `{ source, code, severity, message, evidence? }`. |
 | `Verdict` / `Decision` | `allow\|hold\|block`; Decision bundles verdict + findings + risk_score + policy_version + decided_at. |
 | `ActionStatus` | Lifecycle: received → blocked \| pending_approval → approved/denied → executing → executed/failed (or expired). |
@@ -18,7 +18,7 @@ One page. Builders read this instead of the source. Full shapes: `packages/contr
 | `Mandate` | The human's confirmed, versioned policy for one agent, plus the plain-English instruction it was compiled from. |
 | `Agent` / `AgentCreateResponse` | `{ id, name, status, key_prefix, created_at, last_seen_at }`; create response adds the raw `api_key` **once**. |
 | `ApprovalRequest` | A hold awaiting a human: `{ id, action_id, status, expires_at, decided_at?, decided_via? }`. |
-| `ApprovalLinkView` | What the mobile one-time link renders: amount, payee, agent_name, kind, reason, findings, status, expires_at. |
+| `ApprovalLinkView` | What the mobile one-time link renders: amount, payee?, agent_name, kind, reason, findings, status, expires_at. `payee` is absent for a held order_create. |
 | `AuditEvent` / `AuditVerifyResult` | Hash-chained log row (`hash = sha256(prev_hash + canonical_json(payload))`); verify result walks the chain. See `@tollgate/contracts/audit-hash` (Node-only — not in the main bundle). |
 | `KillSwitchState` | `{ engaged, engaged_at?, reason? }`. |
 | `TollgateEvent` | SSE union, every member carries `id` (for `Last-Event-ID` reconnect): action.received/decided/executed/failed, approval.created/resolved, agent.frozen, killswitch.changed. |
@@ -63,20 +63,27 @@ One page. Builders read this instead of the source. Full shapes: `packages/contr
 
 ## MCP tools (`/mcp`, agent key in `Authorization`)
 
-All inputs below omit `action_id` — the gateway generates it server-side and returns it in the response so the agent can poll `tollgate_get_action_status`. For `tollgate_create_checkout_order`, the gateway fills a placeholder `counterparty` (no payer exists until checkout completes).
+All inputs below omit `action_id` — the gateway derives or generates it server-side and returns it in the response so the agent can poll `tollgate_get_action_status`. `tollgate_create_checkout_order` has no `recipient` field at all: order_create has no counterparty (see `PaymentActionRequest` above), not a placeholder one.
+
+Every money-moving tool takes an optional `idempotency_key` (string, 8–128 chars). Tool descriptions must tell the agent: **reuse the same `idempotency_key` when retrying a call you're unsure succeeded** — never generate a new one for what you believe is the same payment.
+
+- **With `idempotency_key`**: `action_id = UUIDv5(MCP_IDEMPOTENCY_NAMESPACE, agent_id + ":" + idempotency_key)`, deterministic and stable across retries and gateway restarts. Implementation: `@tollgate/contracts/mcp-idempotency` (`deriveMcpActionId`, Node-only, not in the main bundle) — use it as-is, do not reimplement UUIDv5.
+- **Without `idempotency_key`**: the gateway dedupes on `(agent_id, kind, amount, counterparty, memo)` within a rolling 10-minute window — an identical call in that window returns the existing action instead of creating a new one. This is a fallback, not a substitute: agents that care about retry-safety should always pass `idempotency_key`.
+
+Either path, a second call that resolves to an existing `action_id` returns that action's current state — it does not re-run the pipeline or call PayPal again.
 
 | Tool | Input | Maps to |
 |---|---|---|
-| `tollgate_send_payout` | `{ amount, recipient: Counterparty, category?, memo?, reason, source_context? }` | `kind: "payout"` |
-| `tollgate_refund_capture` | `{ capture_id, amount?, reason, source_context? }` (omit amount = full refund) | `kind: "refund"` |
-| `tollgate_send_invoice` | `{ amount, recipient: Counterparty, memo?, category?, reason, source_context? }` | `kind: "invoice_send"` |
-| `tollgate_create_checkout_order` | `{ amount, category?, reason, source_context? }` | `kind: "order_create"` |
+| `tollgate_send_payout` | `{ amount, recipient: Counterparty, category?, memo?, reason, source_context?, idempotency_key? }` | `kind: "payout"` |
+| `tollgate_refund_capture` | `{ capture_id, amount?, reason, source_context?, idempotency_key? }` (omit amount = full refund) | `kind: "refund"` |
+| `tollgate_send_invoice` | `{ amount, recipient: Counterparty, memo?, category?, reason, source_context?, idempotency_key? }` | `kind: "invoice_send"` |
+| `tollgate_create_checkout_order` | `{ amount, category?, reason, source_context?, idempotency_key? }` (no `recipient`) | `kind: "order_create"` |
 | `tollgate_get_action_status` | `{ action_id }` | — |
 | `tollgate_get_my_limits` | `{}` | — |
 
 Every money-moving tool call returns a short text block **in addition to** the JSON `ActionRecord`, so the agent can't miss why it was blocked:
 
-- **allow**: `✅ Approved and executed. {kind} of {amount} to {counterparty} succeeded (PayPal reference: {paypal_resource_id}). Action ID: {action_id}.`
+- **allow**: `✅ Approved and executed. {kind} of {amount}{" to " + counterparty if present} succeeded (PayPal reference: {paypal_resource_id}). Action ID: {action_id}.`
 - **hold**: `⏸ Held for human approval: {reasons}. A human will review it — check tollgate_get_action_status with action_id {action_id}, or wait. Do not resubmit.`
 - **block**: `🚫 Blocked: {reasons}. Do NOT retry this action with a different amount, recipient, or wording — it will be blocked again and flagged for review. If this seems wrong, stop and tell your human operator.`
 

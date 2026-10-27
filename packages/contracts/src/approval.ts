@@ -23,7 +23,8 @@ export const ApprovalLinkViewSchema = z.object({
   approval_id: z.string().uuid(),
   action_id: z.string().uuid(),
   amount: MoneySchema,
-  payee: CounterpartySchema,
+  /** Absent when the held action is an order_create, which has no counterparty. */
+  payee: CounterpartySchema.optional(),
   agent_name: z.string().min(1),
   kind: ActionKindSchema,
   reason: z.string().min(1),

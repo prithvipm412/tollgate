@@ -35,91 +35,12 @@ components:
         currency: USD
         value: "12.50"
     PaymentActionRequest:
-      type: object
-      properties:
-        action_id:
-          type: string
-          format: uuid
-        kind:
-          type: string
-          enum:
-            - payout
-            - refund
-            - invoice_send
-            - order_create
-        amount:
-          type: object
-          properties:
-            currency:
-              type: string
-              enum:
-                - USD
-            value:
-              type: string
-              pattern: ^\d+\.\d{2}$
-          required:
-            - currency
-            - value
-        counterparty:
-          type: object
-          properties:
-            type:
-              type: string
-              enum:
-                - email
-                - paypal_payer_id
-                - capture_id
-            value:
-              type: string
-              minLength: 1
-            display_name:
-              type: string
-              minLength: 1
-          required:
-            - type
-            - value
-        category:
-          type: string
-          maxLength: 100
-        memo:
-          type: string
-          maxLength: 500
-        reason:
-          type: string
-          minLength: 1
-          maxLength: 2000
-        source_context:
-          type: array
-          items:
-            type: string
-            maxLength: 4000
-          maxItems: 5
-        metadata:
-          type: object
-          additionalProperties:
-            type: string
-      required:
-        - action_id
-        - kind
-        - amount
-        - counterparty
-        - reason
-    ActionRecord:
-      type: object
-      properties:
-        request:
-          type: object
+      oneOf:
+        - type: object
           properties:
             action_id:
               type: string
               format: uuid
-            kind:
-              type: string
-              enum:
-                - payout
-                - refund
-                - invoice_send
-                - order_create
             amount:
               type: object
               properties:
@@ -132,24 +53,6 @@ components:
                   pattern: ^\d+\.\d{2}$
               required:
                 - currency
-                - value
-            counterparty:
-              type: object
-              properties:
-                type:
-                  type: string
-                  enum:
-                    - email
-                    - paypal_payer_id
-                    - capture_id
-                value:
-                  type: string
-                  minLength: 1
-                display_name:
-                  type: string
-                  minLength: 1
-              required:
-                - type
                 - value
             category:
               type: string
@@ -171,12 +74,499 @@ components:
               type: object
               additionalProperties:
                 type: string
+            kind:
+              type: string
+              enum:
+                - payout
+            counterparty:
+              type: object
+              properties:
+                type:
+                  type: string
+                  enum:
+                    - email
+                    - paypal_payer_id
+                    - capture_id
+                value:
+                  type: string
+                  minLength: 1
+                display_name:
+                  type: string
+                  minLength: 1
+              required:
+                - type
+                - value
           required:
             - action_id
-            - kind
             - amount
-            - counterparty
             - reason
+            - kind
+            - counterparty
+        - type: object
+          properties:
+            action_id:
+              type: string
+              format: uuid
+            amount:
+              type: object
+              properties:
+                currency:
+                  type: string
+                  enum:
+                    - USD
+                value:
+                  type: string
+                  pattern: ^\d+\.\d{2}$
+              required:
+                - currency
+                - value
+            category:
+              type: string
+              maxLength: 100
+            memo:
+              type: string
+              maxLength: 500
+            reason:
+              type: string
+              minLength: 1
+              maxLength: 2000
+            source_context:
+              type: array
+              items:
+                type: string
+                maxLength: 4000
+              maxItems: 5
+            metadata:
+              type: object
+              additionalProperties:
+                type: string
+            kind:
+              type: string
+              enum:
+                - refund
+            counterparty:
+              type: object
+              properties:
+                type:
+                  type: string
+                  enum:
+                    - email
+                    - paypal_payer_id
+                    - capture_id
+                value:
+                  type: string
+                  minLength: 1
+                display_name:
+                  type: string
+                  minLength: 1
+              required:
+                - type
+                - value
+          required:
+            - action_id
+            - amount
+            - reason
+            - kind
+            - counterparty
+        - type: object
+          properties:
+            action_id:
+              type: string
+              format: uuid
+            amount:
+              type: object
+              properties:
+                currency:
+                  type: string
+                  enum:
+                    - USD
+                value:
+                  type: string
+                  pattern: ^\d+\.\d{2}$
+              required:
+                - currency
+                - value
+            category:
+              type: string
+              maxLength: 100
+            memo:
+              type: string
+              maxLength: 500
+            reason:
+              type: string
+              minLength: 1
+              maxLength: 2000
+            source_context:
+              type: array
+              items:
+                type: string
+                maxLength: 4000
+              maxItems: 5
+            metadata:
+              type: object
+              additionalProperties:
+                type: string
+            kind:
+              type: string
+              enum:
+                - invoice_send
+            counterparty:
+              type: object
+              properties:
+                type:
+                  type: string
+                  enum:
+                    - email
+                    - paypal_payer_id
+                    - capture_id
+                value:
+                  type: string
+                  minLength: 1
+                display_name:
+                  type: string
+                  minLength: 1
+              required:
+                - type
+                - value
+          required:
+            - action_id
+            - amount
+            - reason
+            - kind
+            - counterparty
+        - type: object
+          properties:
+            action_id:
+              type: string
+              format: uuid
+            amount:
+              type: object
+              properties:
+                currency:
+                  type: string
+                  enum:
+                    - USD
+                value:
+                  type: string
+                  pattern: ^\d+\.\d{2}$
+              required:
+                - currency
+                - value
+            category:
+              type: string
+              maxLength: 100
+            memo:
+              type: string
+              maxLength: 500
+            reason:
+              type: string
+              minLength: 1
+              maxLength: 2000
+            source_context:
+              type: array
+              items:
+                type: string
+                maxLength: 4000
+              maxItems: 5
+            metadata:
+              type: object
+              additionalProperties:
+                type: string
+            kind:
+              type: string
+              enum:
+                - order_create
+            counterparty:
+              type: object
+              properties:
+                type:
+                  type: string
+                  enum:
+                    - email
+                    - paypal_payer_id
+                    - capture_id
+                value:
+                  type: string
+                  minLength: 1
+                display_name:
+                  type: string
+                  minLength: 1
+              required:
+                - type
+                - value
+          required:
+            - action_id
+            - amount
+            - reason
+            - kind
+    ActionRecord:
+      type: object
+      properties:
+        request:
+          oneOf:
+            - type: object
+              properties:
+                action_id:
+                  type: string
+                  format: uuid
+                amount:
+                  type: object
+                  properties:
+                    currency:
+                      type: string
+                      enum:
+                        - USD
+                    value:
+                      type: string
+                      pattern: ^\d+\.\d{2}$
+                  required:
+                    - currency
+                    - value
+                category:
+                  type: string
+                  maxLength: 100
+                memo:
+                  type: string
+                  maxLength: 500
+                reason:
+                  type: string
+                  minLength: 1
+                  maxLength: 2000
+                source_context:
+                  type: array
+                  items:
+                    type: string
+                    maxLength: 4000
+                  maxItems: 5
+                metadata:
+                  type: object
+                  additionalProperties:
+                    type: string
+                kind:
+                  type: string
+                  enum:
+                    - payout
+                counterparty:
+                  type: object
+                  properties:
+                    type:
+                      type: string
+                      enum:
+                        - email
+                        - paypal_payer_id
+                        - capture_id
+                    value:
+                      type: string
+                      minLength: 1
+                    display_name:
+                      type: string
+                      minLength: 1
+                  required:
+                    - type
+                    - value
+              required:
+                - action_id
+                - amount
+                - reason
+                - kind
+                - counterparty
+            - type: object
+              properties:
+                action_id:
+                  type: string
+                  format: uuid
+                amount:
+                  type: object
+                  properties:
+                    currency:
+                      type: string
+                      enum:
+                        - USD
+                    value:
+                      type: string
+                      pattern: ^\d+\.\d{2}$
+                  required:
+                    - currency
+                    - value
+                category:
+                  type: string
+                  maxLength: 100
+                memo:
+                  type: string
+                  maxLength: 500
+                reason:
+                  type: string
+                  minLength: 1
+                  maxLength: 2000
+                source_context:
+                  type: array
+                  items:
+                    type: string
+                    maxLength: 4000
+                  maxItems: 5
+                metadata:
+                  type: object
+                  additionalProperties:
+                    type: string
+                kind:
+                  type: string
+                  enum:
+                    - refund
+                counterparty:
+                  type: object
+                  properties:
+                    type:
+                      type: string
+                      enum:
+                        - email
+                        - paypal_payer_id
+                        - capture_id
+                    value:
+                      type: string
+                      minLength: 1
+                    display_name:
+                      type: string
+                      minLength: 1
+                  required:
+                    - type
+                    - value
+              required:
+                - action_id
+                - amount
+                - reason
+                - kind
+                - counterparty
+            - type: object
+              properties:
+                action_id:
+                  type: string
+                  format: uuid
+                amount:
+                  type: object
+                  properties:
+                    currency:
+                      type: string
+                      enum:
+                        - USD
+                    value:
+                      type: string
+                      pattern: ^\d+\.\d{2}$
+                  required:
+                    - currency
+                    - value
+                category:
+                  type: string
+                  maxLength: 100
+                memo:
+                  type: string
+                  maxLength: 500
+                reason:
+                  type: string
+                  minLength: 1
+                  maxLength: 2000
+                source_context:
+                  type: array
+                  items:
+                    type: string
+                    maxLength: 4000
+                  maxItems: 5
+                metadata:
+                  type: object
+                  additionalProperties:
+                    type: string
+                kind:
+                  type: string
+                  enum:
+                    - invoice_send
+                counterparty:
+                  type: object
+                  properties:
+                    type:
+                      type: string
+                      enum:
+                        - email
+                        - paypal_payer_id
+                        - capture_id
+                    value:
+                      type: string
+                      minLength: 1
+                    display_name:
+                      type: string
+                      minLength: 1
+                  required:
+                    - type
+                    - value
+              required:
+                - action_id
+                - amount
+                - reason
+                - kind
+                - counterparty
+            - type: object
+              properties:
+                action_id:
+                  type: string
+                  format: uuid
+                amount:
+                  type: object
+                  properties:
+                    currency:
+                      type: string
+                      enum:
+                        - USD
+                    value:
+                      type: string
+                      pattern: ^\d+\.\d{2}$
+                  required:
+                    - currency
+                    - value
+                category:
+                  type: string
+                  maxLength: 100
+                memo:
+                  type: string
+                  maxLength: 500
+                reason:
+                  type: string
+                  minLength: 1
+                  maxLength: 2000
+                source_context:
+                  type: array
+                  items:
+                    type: string
+                    maxLength: 4000
+                  maxItems: 5
+                metadata:
+                  type: object
+                  additionalProperties:
+                    type: string
+                kind:
+                  type: string
+                  enum:
+                    - order_create
+                counterparty:
+                  type: object
+                  properties:
+                    type:
+                      type: string
+                      enum:
+                        - email
+                        - paypal_payer_id
+                        - capture_id
+                    value:
+                      type: string
+                      minLength: 1
+                    display_name:
+                      type: string
+                      minLength: 1
+                  required:
+                    - type
+                    - value
+              required:
+                - action_id
+                - amount
+                - reason
+                - kind
         agent_id:
           type: string
           format: uuid
@@ -1042,7 +1432,6 @@ components:
         - approval_id
         - action_id
         - amount
-        - payee
         - agent_name
         - kind
         - reason
@@ -1304,75 +1693,270 @@ components:
             type: object
             properties:
               request:
-                type: object
-                properties:
-                  action_id:
-                    type: string
-                    format: uuid
-                  kind:
-                    type: string
-                    enum:
-                      - payout
-                      - refund
-                      - invoice_send
-                      - order_create
-                  amount:
-                    type: object
+                oneOf:
+                  - type: object
                     properties:
-                      currency:
+                      action_id:
                         type: string
-                        enum:
-                          - USD
-                      value:
+                        format: uuid
+                      amount:
+                        type: object
+                        properties:
+                          currency:
+                            type: string
+                            enum:
+                              - USD
+                          value:
+                            type: string
+                            pattern: ^\d+\.\d{2}$
+                        required:
+                          - currency
+                          - value
+                      category:
                         type: string
-                        pattern: ^\d+\.\d{2}$
-                    required:
-                      - currency
-                      - value
-                  counterparty:
-                    type: object
-                    properties:
-                      type:
+                        maxLength: 100
+                      memo:
                         type: string
-                        enum:
-                          - email
-                          - paypal_payer_id
-                          - capture_id
-                      value:
+                        maxLength: 500
+                      reason:
                         type: string
                         minLength: 1
-                      display_name:
+                        maxLength: 2000
+                      source_context:
+                        type: array
+                        items:
+                          type: string
+                          maxLength: 4000
+                        maxItems: 5
+                      metadata:
+                        type: object
+                        additionalProperties:
+                          type: string
+                      kind:
+                        type: string
+                        enum:
+                          - payout
+                      counterparty:
+                        type: object
+                        properties:
+                          type:
+                            type: string
+                            enum:
+                              - email
+                              - paypal_payer_id
+                              - capture_id
+                          value:
+                            type: string
+                            minLength: 1
+                          display_name:
+                            type: string
+                            minLength: 1
+                        required:
+                          - type
+                          - value
+                    required:
+                      - action_id
+                      - amount
+                      - reason
+                      - kind
+                      - counterparty
+                  - type: object
+                    properties:
+                      action_id:
+                        type: string
+                        format: uuid
+                      amount:
+                        type: object
+                        properties:
+                          currency:
+                            type: string
+                            enum:
+                              - USD
+                          value:
+                            type: string
+                            pattern: ^\d+\.\d{2}$
+                        required:
+                          - currency
+                          - value
+                      category:
+                        type: string
+                        maxLength: 100
+                      memo:
+                        type: string
+                        maxLength: 500
+                      reason:
                         type: string
                         minLength: 1
+                        maxLength: 2000
+                      source_context:
+                        type: array
+                        items:
+                          type: string
+                          maxLength: 4000
+                        maxItems: 5
+                      metadata:
+                        type: object
+                        additionalProperties:
+                          type: string
+                      kind:
+                        type: string
+                        enum:
+                          - refund
+                      counterparty:
+                        type: object
+                        properties:
+                          type:
+                            type: string
+                            enum:
+                              - email
+                              - paypal_payer_id
+                              - capture_id
+                          value:
+                            type: string
+                            minLength: 1
+                          display_name:
+                            type: string
+                            minLength: 1
+                        required:
+                          - type
+                          - value
                     required:
-                      - type
-                      - value
-                  category:
-                    type: string
-                    maxLength: 100
-                  memo:
-                    type: string
-                    maxLength: 500
-                  reason:
-                    type: string
-                    minLength: 1
-                    maxLength: 2000
-                  source_context:
-                    type: array
-                    items:
-                      type: string
-                      maxLength: 4000
-                    maxItems: 5
-                  metadata:
-                    type: object
-                    additionalProperties:
-                      type: string
-                required:
-                  - action_id
-                  - kind
-                  - amount
-                  - counterparty
-                  - reason
+                      - action_id
+                      - amount
+                      - reason
+                      - kind
+                      - counterparty
+                  - type: object
+                    properties:
+                      action_id:
+                        type: string
+                        format: uuid
+                      amount:
+                        type: object
+                        properties:
+                          currency:
+                            type: string
+                            enum:
+                              - USD
+                          value:
+                            type: string
+                            pattern: ^\d+\.\d{2}$
+                        required:
+                          - currency
+                          - value
+                      category:
+                        type: string
+                        maxLength: 100
+                      memo:
+                        type: string
+                        maxLength: 500
+                      reason:
+                        type: string
+                        minLength: 1
+                        maxLength: 2000
+                      source_context:
+                        type: array
+                        items:
+                          type: string
+                          maxLength: 4000
+                        maxItems: 5
+                      metadata:
+                        type: object
+                        additionalProperties:
+                          type: string
+                      kind:
+                        type: string
+                        enum:
+                          - invoice_send
+                      counterparty:
+                        type: object
+                        properties:
+                          type:
+                            type: string
+                            enum:
+                              - email
+                              - paypal_payer_id
+                              - capture_id
+                          value:
+                            type: string
+                            minLength: 1
+                          display_name:
+                            type: string
+                            minLength: 1
+                        required:
+                          - type
+                          - value
+                    required:
+                      - action_id
+                      - amount
+                      - reason
+                      - kind
+                      - counterparty
+                  - type: object
+                    properties:
+                      action_id:
+                        type: string
+                        format: uuid
+                      amount:
+                        type: object
+                        properties:
+                          currency:
+                            type: string
+                            enum:
+                              - USD
+                          value:
+                            type: string
+                            pattern: ^\d+\.\d{2}$
+                        required:
+                          - currency
+                          - value
+                      category:
+                        type: string
+                        maxLength: 100
+                      memo:
+                        type: string
+                        maxLength: 500
+                      reason:
+                        type: string
+                        minLength: 1
+                        maxLength: 2000
+                      source_context:
+                        type: array
+                        items:
+                          type: string
+                          maxLength: 4000
+                        maxItems: 5
+                      metadata:
+                        type: object
+                        additionalProperties:
+                          type: string
+                      kind:
+                        type: string
+                        enum:
+                          - order_create
+                      counterparty:
+                        type: object
+                        properties:
+                          type:
+                            type: string
+                            enum:
+                              - email
+                              - paypal_payer_id
+                              - capture_id
+                          value:
+                            type: string
+                            minLength: 1
+                          display_name:
+                            type: string
+                            minLength: 1
+                        required:
+                          - type
+                          - value
+                    required:
+                      - action_id
+                      - amount
+                      - reason
+                      - kind
               agent_id:
                 type: string
                 format: uuid

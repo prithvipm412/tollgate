@@ -22,17 +22,31 @@ export const CounterpartySchema = z
   });
 export type Counterparty = z.infer<typeof CounterpartySchema>;
 
-export const PaymentActionRequestSchema = z.object({
+const PaymentActionRequestBaseSchema = z.object({
   action_id: z.string().uuid(),
-  kind: ActionKindSchema,
   amount: MoneySchema,
-  counterparty: CounterpartySchema,
   category: z.string().max(100).optional(),
   memo: z.string().max(500).optional(),
   reason: z.string().min(1).max(2000),
   source_context: z.array(z.string().max(4000)).max(5).optional(),
   metadata: z.record(z.string(), z.string()).optional(),
 });
+
+/**
+ * `counterparty` is required for every kind except `order_create` — an
+ * order has no known payer until the buyer completes checkout, so
+ * counterparty/new-counterparty policy rules are skipped for it (see
+ * docs/CONTRACT.md). Modeled as a discriminated union (rather than a
+ * refinement) so consumers get a real type-level guarantee: narrowing on
+ * `kind` is enough to know whether `counterparty` is present, with no
+ * runtime-only check required.
+ */
+export const PaymentActionRequestSchema = z.discriminatedUnion("kind", [
+  PaymentActionRequestBaseSchema.extend({ kind: z.literal("payout"), counterparty: CounterpartySchema }),
+  PaymentActionRequestBaseSchema.extend({ kind: z.literal("refund"), counterparty: CounterpartySchema }),
+  PaymentActionRequestBaseSchema.extend({ kind: z.literal("invoice_send"), counterparty: CounterpartySchema }),
+  PaymentActionRequestBaseSchema.extend({ kind: z.literal("order_create"), counterparty: CounterpartySchema.optional() }),
+]);
 export type PaymentActionRequest = z.infer<typeof PaymentActionRequestSchema>;
 
 export const FindingSourceSchema = z.enum(["policy", "anomaly", "injection", "intent", "system"]);

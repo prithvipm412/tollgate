@@ -31,7 +31,7 @@ export * from "./misc.js";
 
 import { agentCreateResponseExample, agentFrozen, agentOps } from "./agents.js";
 import { mandate } from "./mandates.js";
-import { actionInvoiceInjected, actionPayout1, actionPayoutHeld, actionRefund } from "./actions.js";
+import { actionInvoiceInjected, actionOrderCreate, actionPayout1, actionPayoutHeld, actionRefund } from "./actions.js";
 import { approvalLinkView, approvalPending, approvalResolvedExample } from "./approvals.js";
 import { auditEvents, auditVerifyResult } from "./audit.js";
 import { killSwitchDisengaged, killSwitchEngagedExample } from "./killswitch.js";
@@ -50,6 +50,7 @@ export const schemaFixtures: { name: string; schema: z.ZodTypeAny; value: unknow
   { name: "ActionRecord (block)", schema: ActionRecordSchema, value: actionInvoiceInjected },
   { name: "ActionRecord (hold/pending_approval)", schema: ActionRecordSchema, value: actionPayoutHeld },
   { name: "ActionRecord (refund)", schema: ActionRecordSchema, value: actionRefund },
+  { name: "ActionRecord (order_create, no counterparty)", schema: ActionRecordSchema, value: actionOrderCreate },
   { name: "ApprovalRequest (pending)", schema: ApprovalRequestSchema, value: approvalPending },
   { name: "ApprovalRequest (resolved)", schema: ApprovalRequestSchema, value: approvalResolvedExample },
   { name: "ApprovalLinkView", schema: ApprovalLinkViewSchema, value: approvalLinkView },

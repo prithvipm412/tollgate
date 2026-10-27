@@ -13,6 +13,10 @@
     "./audit-hash": {
       "types": "./dist/audit-hash.d.ts",
       "default": "./dist/audit-hash.js"
+    },
+    "./mcp-idempotency": {
+      "types": "./dist/mcp-idempotency.d.ts",
+      "default": "./dist/mcp-idempotency.js"
     }
   },
   "scripts": {

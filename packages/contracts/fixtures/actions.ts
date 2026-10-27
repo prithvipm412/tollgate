@@ -6,6 +6,7 @@ export const ACTION_PAYOUT_1_ID = "7f100ad7-e421-42f1-9fc8-5761b6701b07";
 export const ACTION_INVOICE_INJECTED_ID = "c5f1ab21-65bf-42b8-9bea-36d5765d8cc1";
 export const ACTION_PAYOUT_HELD_ID = "9a4401ef-cf47-4b2d-b9ce-6f033f21c064";
 export const ACTION_REFUND_ID = "9da05b06-887c-40b2-b51f-3093e2fc7246";
+export const ACTION_ORDER_CREATE_ID = "0e3680f9-de62-4226-b7ef-b4cd4c32b904";
 
 /** 1. Ordinary freelancer payout, under the $300 threshold — auto-allowed and executed. */
 export const actionPayout1: ActionRecord = {
@@ -140,4 +141,29 @@ export const actionRefund: ActionRecord = {
   updated_at: minutesAgo(14),
 };
 
-export const actions: ActionRecord[] = [actionPayout1, actionInvoiceInjected, actionPayoutHeld, actionRefund];
+/** 5. order_create has no counterparty yet — no payer exists until checkout completes. */
+export const actionOrderCreate: ActionRecord = {
+  request: {
+    action_id: ACTION_ORDER_CREATE_ID,
+    kind: "order_create",
+    amount: { currency: "USD", value: "89.00" },
+    category: "checkout",
+    memo: "Checkout order for consulting package — Nov engagement",
+    reason: "Customer requested a checkout link for the Nov consulting package in chat.",
+    source_context: ["Chat: \"Can you send me a payment link for the $89 Nov consulting package?\""],
+  },
+  agent_id: AGENT_OPS_ID,
+  decision: {
+    verdict: "allow",
+    risk_score: 5,
+    findings: [{ source: "policy", code: "WITHIN_LIMITS", severity: "info", message: "Order creation has no counterparty to check; within amount limits." }],
+    policy_version: 1,
+    decided_at: minutesAgo(5),
+  },
+  status: "executed",
+  paypal_resource_id: "ORDER-5K8J2N4Q",
+  created_at: minutesAgo(6),
+  updated_at: minutesAgo(5),
+};
+
+export const actions: ActionRecord[] = [actionPayout1, actionInvoiceInjected, actionPayoutHeld, actionRefund, actionOrderCreate];
