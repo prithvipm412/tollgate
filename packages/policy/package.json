@@ -8,10 +8,15 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "dev": "echo '@tollgate/policy: no dev task yet'"
+    "dev": "echo '@tollgate/policy: no dev task yet'",
+    "test": "vitest run --coverage"
   },
   "dependencies": {
     "@tollgate/contracts": "workspace:*",
     "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@vitest/coverage-v8": "2.1.9",
+    "vitest": "2.1.9"
   }
 }
