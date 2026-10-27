@@ -16,6 +16,8 @@
     "db:migrate": "pnpm --filter @tollgate/db run migrate",
     "contracts:openapi": "pnpm --filter @tollgate/contracts run openapi",
     "mock:api": "pnpm --filter @tollgate/contracts run mock:api",
+    "seed": "pnpm --filter @tollgate/gateway run seed",
+    "eval:guard": "pnpm --filter @tollgate/guard-ai run eval:guard",
     "demo": "echo 'TODO: scripted demo — see docs/ARCHITECTURE.md'"
   },
   "devDependencies": {
