@@ -9,13 +9,15 @@
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "dev": "echo '@tollgate/db: no dev task yet'",
-    "migrate": "echo '@tollgate/db: migrations not implemented yet'"
+    "migrate": "tsx src/migrate.ts",
+    "generate": "drizzle-kit generate"
   },
   "dependencies": {
     "drizzle-orm": "^0.36.4",
     "postgres": "^3.4.5"
   },
   "devDependencies": {
-    "drizzle-kit": "^0.28.1"
+    "drizzle-kit": "^0.28.1",
+    "tsx": "^4.23.15"
   }
 }
