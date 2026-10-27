@@ -4,6 +4,8 @@ import type { FastifyRequest } from "fastify";
 import { PayPalError } from "@tollgate/paypal";
 import { ApiErrorSchema } from "@tollgate/contracts";
 import { z } from "zod";
+import { registerRoutes } from "./routes.js";
+import type { GatewayService } from "./service.js";
 import type { Config } from "./config.js";
 import { errorStatus, GatewayError } from "./errors.js";
 export { loadConfig, ConfigError } from "./config.js";
@@ -29,8 +31,8 @@ declare module "fastify" {
 export const hashApiKey = (key: string): string => createHash("sha256").update(key).digest("hex");
 const equal = (a: string, b: string): boolean =>
   timingSafeEqual(createHash("sha256").update(a).digest(), createHash("sha256").update(b).digest());
-export function buildGateway(config: Config, store: GatewayStore) {
-  const app = Fastify({ logger: false });
+export function buildGateway(config: Config, store: GatewayStore, service?: GatewayService) {
+  const app = Fastify({ logger: false, routerOptions: { maxParamLength: 2048 } });
   const signature = (payload: string) =>
     createHmac("sha256", config.SESSION_SECRET).update(payload).digest("base64url");
   app.decorateRequest("agent", null);
@@ -102,6 +104,7 @@ export function buildGateway(config: Config, store: GatewayStore) {
     );
     return { ok: true };
   });
+  if (service) registerRoutes(app, service);
   app.addHook("onClose", async () => {
     await store.close();
   });
