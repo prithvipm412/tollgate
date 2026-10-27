@@ -8,6 +8,13 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "dev": "echo '@tollgate/paypal: no dev task yet'"
+    "dev": "echo '@tollgate/paypal: no dev task yet'",
+    "test": "vitest run --root ../.. packages/paypal/src"
+  },
+  "dependencies": {
+    "@tollgate/contracts": "workspace:*"
+  },
+  "devDependencies": {
+    "nock": "^14.0.0"
   }
 }
